@@ -1,5 +1,4 @@
 const line_token = process.env.LINE_TOKEN;
-const anthropic_key = process.env.ANTHROPIC_KEY;
 
 const MANAGERS = [
   {id:'suzuki',name:'鈴木 誠一郎',role:'チーフマネージャー'},
@@ -20,7 +19,7 @@ const SCHEDULE = [
 
 async function sendLine(message, managerName) {
   const text = `【${managerName}】\n${message}`;
-  await fetch('https://api.line.me/v2/bot/message/broadcast', {
+  const res = await fetch('https://api.line.me/v2/bot/message/broadcast', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -30,9 +29,18 @@ async function sendLine(message, managerName) {
       messages: [{type: 'text', text}]
     }),
   });
+  return res.status;
 }
 
 export default async function handler(req, res) {
+  const isTest = req.query.test === 'true';
+  
+  if (isTest) {
+    const mgr = MANAGERS[1];
+    const status = await sendLine('サーバーのテストです。マネージャーシステムが正常に動作しています。', mgr.name);
+    return res.status(200).json({ok: true, sent: true, lineStatus: status});
+  }
+
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const hour = jst.getUTCHours();
