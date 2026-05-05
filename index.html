@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="MANAGER">
+<title>MANAGER</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
+  --border:#2a2a2a;--border2:#333;
+  --text:#f0f0f0;--text2:#999;--text3:#555;
+  --accent:#c8a97e;--accent2:#e8c99e;
+  --blue:#4a90d9;--red:#e05555;--green:#5ea85e;
+  --bubble-mgr:#1e1e1e;--bubble-me:#2a4a7a;
+  --font:'Noto Sans JP',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;height:100dvh;overflow:hidden;}
+.screen.active{display:flex;}
+::-webkit-scrollbar{width:0;}
+
+/* LOADING */
+.loading-screen{position:fixed;inset:0;background:var(–bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;gap:16px;transition:opacity 0.5s;}
+.loading-logo{font-family:var(–mono);font-size:13px;letter-spacing:0.4em;color:var(–accent);}
+.loading-bar{width:120px;height:1px;background:var(–border);position:relative;overflow:hidden;}
+.loading-bar::after{content:’’;position:absolute;left:-100%;top:0;width:100%;height:100%;background:var(–accent);animation:loadSlide 1.5s ease infinite;}
+@keyframes loadSlide{0%{left:-100%}100%{left:100%}}
+
+/* TOAST */
+.toast-container{position:fixed;top:0;left:0;right:0;z-index:9999;padding:12px;pointer-events:none;}
+.toast{background:rgba(26,26,26,0.96);border:1px solid var(–border2);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transform:translateY(-120px);opacity:0;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s;pointer-events:auto;cursor:pointer;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-icon{width:36px;height:36px;background:var(–bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.toast-content{flex:1;min-width:0;}
+.toast-app{font-size:10px;color:var(–text3);font-family:var(–mono);margin-bottom:2px;}
+.toast-from{font-size:12px;font-weight:500;color:var(–accent);margin-bottom:2px;}
+.toast-msg{font-size:12px;color:var(–text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* SETUP */
+#setup{background:var(–bg);overflow-y:auto;padding:48px 24px 60px;}
+.setup-logo{font-family:var(–mono);font-size:11px;letter-spacing:0.3em;color:var(–accent);margin-bottom:40px;}
+.setup-title{font-size:26px;font-weight:700;line-height:1.3;margin-bottom:8px;}
+.setup-sub{font-size:13px;color:var(–text2);margin-bottom:40px;line-height:1.6;}
+.setup-section{margin-bottom:28px;}
+.setup-label{font-family:var(–mono);font-size:10px;letter-spacing:0.2em;color:var(–accent);text-transform:uppercase;margin-bottom:10px;}
+.setup-input{width:100%;background:var(–bg2);border:1px solid var(–border2);border-radius:8px;padding:14px 16px;font-family:var(–font);font-size:15px;color:var(–text);outline:none;transition:border-color 0.2s;}
+.setup-input:focus{border-color:var(–accent);}
+.setup-input::placeholder{color:var(–text3);}
+textarea.setup-input{resize:none;height:90px;line-height:1.6;}
+.api-note{font-size:11px;color:var(–text3);margin-top:8px;line-height:1.5;}
+.api-note a{color:var(–accent);text-decoration:none;}
+.start-btn{width:100%;background:var(–accent);color:#000;border:none;border-radius:8px;padding:18px;font-family:var(–font);font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.05em;transition:opacity 0.2s;}
+.start-btn:active{opacity:0.8;}
+
+/* HEADER */
+.app-header{background:var(–bg2);border-bottom:1px solid var(–border);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.org-badge{font-family:var(–mono);font-size:9px;letter-spacing:0.15em;color:var(–accent);background:rgba(200,169,126,0.1);border:1px solid rgba(200,169,126,0.3);border-radius:4px;padding:3px 7px;}
+.back-btn{background:none;border:none;color:var(–blue);font-size:15px;cursor:pointer;padding:4px 8px 4px 0;display:flex;align-items:center;gap:4px;}
+
+/* BOTTOM NAV */
+.bottom-nav{background:var(–bg2);border-top:1px solid var(–border);display:flex;padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;}
+.nav-btn{flex:1;background:none;border:none;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(–text3);font-size:9px;font-family:var(–font);transition:color 0.2s;}
+.nav-btn.active{color:var(–accent);}
+.nav-btn svg{width:20px;height:20px;}
+
+/* CHAT LIST */
+#main{background:var(–bg);}
+.chat-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.chat-item{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(–border);cursor:pointer;transition:background 0.15s;}
+.chat-item:active{background:var(–bg2);}
+.chat-avatar{width:46px;height:46px;border-radius:50%;background:var(–bg3);border:1px solid var(–border2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:var(–accent);flex-shrink:0;position:relative;}
+.unread-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;background:var(–accent);border-radius:50%;border:2px solid var(–bg);}
+.chat-info{flex:1;min-width:0;}
+.chat-name-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.chat-name{font-size:14px;font-weight:500;}
+.chat-time{font-size:10px;color:var(–text3);font-family:var(–mono);}
+.chat-role{font-size:10px;color:var(–accent);margin-bottom:2px;font-family:var(–mono);}
+.chat-preview{font-size:12px;color:var(–text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* CHAT */
+#chat{background:var(–bg);}
+.chat-header-avatar{width:34px;height:34px;border-radius:50%;background:var(–bg3);border:1px solid var(–border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:var(–accent);}
+.chat-header-name{font-size:14px;font-weight:500;}
+.chat-header-role{font-size:11px;color:var(–accent);font-family:var(–mono);}
+.messages-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 12px;display:flex;flex-direction:column;gap:10px;}
+.date-divider{text-align:center;font-size:11px;color:var(–text3);font-family:var(–mono);margin:8px 0;position:relative;}
+.date-divider::before,.date-divider::after{content:’’;position:absolute;top:50%;width:30%;height:1px;background:var(–border);}
+.date-divider::before{left:0;}
+.date-divider::after{right:0;}
+.msg-row{display:flex;align-items:flex-end;gap:8px;animation:fadeInMsg 0.3s ease;}
+.msg-row.from-me{justify-content:flex-end;}
+@keyframes fadeInMsg{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-avatar{width:28px;height:28px;border-radius:50%;background:var(–bg3);border:1px solid var(–border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(–accent);flex-shrink:0;}
+.msg-content{max-width:75%;}
+.bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.6;word-break:break-word;}
+.from-manager .bubble{background:var(–bubble-mgr);border:1px solid var(–border2);border-radius:4px 18px 18px 18px;color:var(–text);}
+.from-me .bubble{background:var(–bubble-me);border-radius:18px 18px 4px 18px;color:#fff;}
+.msg-meta{display:flex;align-items:center;gap:6px;margin-top:4px;}
+.from-me .msg-meta{justify-content:flex-end;}
+.msg-time{font-size:10px;color:var(–text3);font-family:var(–mono);}
+.msg-read{font-size:10px;color:var(–accent);}
+.typing-bubble{background:var(–bubble-mgr);border:1px solid var(–border2);border-radius:4px 18px 18px 18px;padding:12px 16px;display:flex;gap:5px;align-items:center;}
+.typing-dot{width:6px;height:6px;background:var(–text3);border-radius:50%;animation:typingBounce 1.2s infinite;}
+.typing-dot:nth-child(2){animation-delay:0.2s;}
+.typing-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.input-bar{background:var(–bg2);border-top:1px solid var(–border);padding:10px 12px;display:flex;align-items:flex-end;gap:10px;flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+.msg-input{flex:1;background:var(–bg3);border:1px solid var(–border2);border-radius:20px;padding:10px 16px;font-family:var(–font);font-size:15px;color:var(–text);outline:none;resize:none;max-height:100px;line-height:1.5;transition:border-color 0.2s;}
+.msg-input:focus{border-color:var(–accent);}
+.msg-input::placeholder{color:var(–text3);}
+.send-btn{width:36px;height:36px;background:var(–accent);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity 0.2s;}
+.send-btn:active{opacity:0.7;}
+.send-btn svg{width:16px;height:16px;fill:#000;}
+
+/* QUICK ACTIONS */
+.quick-actions{display:flex;gap:8px;padding:8px 12px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(–border);}
+.quick-btn{background:var(–bg3);border:1px solid var(–border2);border-radius:20px;padding:7px 14px;font-size:12px;color:var(–text2);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.2s;}
+.quick-btn:active{background:var(–bg4);color:var(–accent);}
+.emergency-btn{background:rgba(224,85,85,0.1);border-color:rgba(224,85,85,0.3);color:var(–red);}
+
+/* DASHBOARD */
+#dashboard{background:var(–bg);overflow-y:auto;}
+.dash-body{flex:1;overflow-y:auto;padding:16px;}
+.dash-section{margin-bottom:24px;}
+.dash-section-title{font-family:var(–mono);font-size:10px;letter-spacing:0.2em;color:var(–accent);text-transform:uppercase;margin-bottom:12px;}
+.dash-card{background:var(–bg2);border:1px solid var(–border);border-radius:12px;padding:16px;margin-bottom:10px;}
+.dash-card-title{font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.dash-card-body{font-size:13px;color:var(–text2);line-height:1.6;}
+.progress-bar{height:4px;background:var(–border);border-radius:2px;margin-top:10px;overflow:hidden;}
+.progress-fill{height:100%;background:var(–accent);border-radius:2px;transition:width 0.5s;}
+.checkin-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.checkin-btn{background:var(–bg3);border:1px solid var(–border2);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.checkin-btn.selected{background:rgba(200,169,126,0.2);border-color:var(–accent);color:var(–accent);}
+.mood-btn{font-size:20px;background:var(–bg3);border:1px solid var(–border2);border-radius:8px;padding:10px;cursor:pointer;transition:all 0.2s;}
+.mood-btn.selected{background:rgba(200,169,126,0.2);border-color:var(–accent);}
+.strategy-phase{background:var(–bg3);border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(–accent);}
+.strategy-phase.active{border-left-color:var(–green);}
+.strategy-phase.done{border-left-color:var(–text3);opacity:0.6;}
+.phase-label{font-family:var(–mono);font-size:10px;color:var(–accent);margin-bottom:4px;}
+.phase-content{font-size:13px;color:var(–text2);line-height:1.6;}
+.routine-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(–border);}
+.routine-check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(–border2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.2s;}
+.routine-check.done{background:var(–accent);border-color:var(–accent);}
+.routine-check.done::after{content:‘✓’;font-size:12px;color:#000;}
+.routine-label{font-size:14px;flex:1;}
+.routine-time{font-size:11px;color:var(–text3);font-family:var(–mono);}
+
+/* SCHEDULE */
+#scheduleScreen{background:var(–bg);}
+.schedule-body{flex:1;overflow-y:auto;padding:20px 16px;}
+.schedule-textarea{width:100%;background:var(–bg2);border:1px solid var(–border2);border-radius:8px;padding:14px;font-family:var(–font);font-size:14px;color:var(–text);outline:none;resize:none;height:180px;line-height:1.8;margin-bottom:12px;}
+.schedule-textarea:focus{border-color:var(–accent);}
+.schedule-hint{font-size:12px;color:var(–text3);line-height:1.6;margin-bottom:20px;}
+.save-btn{width:100%;background:var(–accent);color:#000;border:none;border-radius:8px;padding:16px;font-family:var(–font);font-size:15px;font-weight:700;cursor:pointer;transition:opacity 0.2s;}
+.save-btn:active{opacity:0.8;}
+
+/* SETTINGS */
+#settingsScreen{background:var(–bg);}
+.settings-body{flex:1;overflow-y:auto;padding:20px 16px;}
+.settings-section{margin-bottom:28px;}
+.settings-section-title{font-family:var(–mono);font-size:10px;letter-spacing:0.2em;color:var(–accent);text-transform:uppercase;margin-bottom:12px;}
+.reminder-item{background:var(–bg2);border:1px solid var(–border);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.reminder-info{flex:1;}
+.reminder-time{font-family:var(–mono);font-size:14px;color:var(–accent);margin-bottom:3px;}
+.reminder-mgr{font-size:11px;color:var(–text3);margin-bottom:3px;}
+.reminder-text{font-size:13px;color:var(–text2);}
+.reminder-del{background:none;border:none;color:var(–red);font-size:18px;cursor:pointer;padding:4px;}
+.add-reminder-form{background:var(–bg2);border:1px solid var(–border2);border-radius:10px;padding:16px;margin-top:12px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-input{background:var(–bg3);border:1px solid var(–border2);border-radius:8px;padding:10px 12px;font-family:var(–font);font-size:14px;color:var(–text);outline:none;width:100%;}
+.form-input:focus{border-color:var(–accent);}
+.form-select{background:var(–bg3);border:1px solid var(–border2);border-radius:8px;padding:10px 12px;font-family:var(–font);font-size:14px;color:var(–text);outline:none;width:100%;-webkit-appearance:none;}
+.pill-setting{display:flex;align-items:center;justify-content:space-between;background:var(–bg2);border:1px solid var(–border);border-radius:10px;padding:14px;}
+.toggle{width:44px;height:24px;background:var(–border2);border-radius:12px;position:relative;cursor:pointer;transition:background 0.2s;}
+.toggle.on{background:var(–accent);}
+.toggle::after{content:’’;position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform 0.2s;}
+.toggle.on::after{transform:translateX(20px);}
+</style>
+
+</head>
+<body>
+
+<div class="loading-screen" id="loading">
+  <div class="loading-logo">MANAGER</div>
+  <div class="loading-bar"></div>
+</div>
+
+<div class="toast-container">
+  <div class="toast" id="toast" onclick="openToastChat()">
+    <div class="toast-icon">💬</div>
+    <div class="toast-content">
+      <div class="toast-app">MANAGER</div>
+      <div class="toast-from" id="toastFrom"></div>
+      <div class="toast-msg" id="toastMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP -->
+
+<div class="screen" id="setup">
+  <div style="overflow-y:auto;padding:48px 24px 60px;flex:1;">
+    <div class="setup-logo">Manager App — Setup</div>
+    <div class="setup-title">はじめまして。<br>セットアップを始めましょう。</div>
+    <div class="setup-sub">あなた専用のマネージャーチームを設定します。入力した情報はこの端末にのみ保存されます。</div>
+    <div class="setup-section">
+      <div class="setup-label">あなたの名前</div>
+      <input class="setup-input" id="userName" placeholder="例：さくら" type="text">
+    </div>
+    <div class="setup-section">
+      <div class="setup-label">Claude API キー</div>
+      <input class="setup-input" id="apiKey" placeholder="sk-ant-..." type="password">
+      <div class="api-note"><a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> で取得。端末内にのみ保存されます。</div>
+    </div>
+    <button class="start-btn" onclick="startApp()">マネージャーチームに会う →</button>
+  </div>
+</div>
+
+<!-- MAIN (chat list) -->
+
+<div class="screen" id="main">
+  <div class="app-header">
+    <div class="org-badge">SixTONES</div>
+    <div style="flex:1;">
+      <div style="font-size:14px;font-weight:500;" id="mainTitle">マネージャーチーム</div>
+      <div style="font-size:11px;color:var(--text2);">4名オンライン</div>
+    </div>
+  </div>
+  <div class="chat-list" id="chatList"></div>
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="showScreen('main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      チャット
+    </button>
+    <button class="nav-btn" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      管理
+    </button>
+    <button class="nav-btn" onclick="showScreen('scheduleScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      予定
+    </button>
+    <button class="nav-btn" onclick="showScreen('settingsScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+</div>
+
+<!-- CHAT -->
+
+<div class="screen" id="chat">
+  <div class="app-header">
+    <button class="back-btn" onclick="showScreen('main')">
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      戻る
+    </button>
+    <div class="chat-header-avatar" id="chatHeaderAvatar"></div>
+    <div style="flex:1;">
+      <div class="chat-header-name" id="chatHeaderName"></div>
+      <div class="chat-header-role" id="chatHeaderRole"></div>
+    </div>
+  </div>
+  <div class="quick-actions" id="quickActions"></div>
+  <div class="messages-area" id="messagesArea"></div>
+  <div class="input-bar">
+    <textarea class="msg-input" id="msgInput" placeholder="メッセージ" rows="1" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+
+<div class="screen" id="dashboard">
+  <div class="app-header">
+    <div class="org-badge">SixTONES</div>
+    <div style="flex:1;font-size:14px;font-weight:500;">ダッシュボード</div>
+  </div>
+  <div class="dash-body" id="dashBody"></div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="showScreen('main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      チャット
+    </button>
+    <button class="nav-btn active" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      管理
+    </button>
+    <button class="nav-btn" onclick="showScreen('scheduleScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      予定
+    </button>
+    <button class="nav-btn" onclick="showScreen('settingsScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+
+<div class="screen" id="scheduleScreen">
+  <div class="app-header">
+    <button class="back-btn" onclick="showScreen('main')">
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      戻る
+    </button>
+    <div style="font-size:15px;font-weight:500;">スケジュール登録</div>
+  </div>
+  <div class="schedule-body">
+    <div class="dash-section-title">今月の予定</div>
+    <textarea class="schedule-textarea" id="scheduleInput" placeholder="例：&#10;5/3 友達と渋谷&#10;5/10 歯医者&#10;5/25 SixTONES スタジアムライブ"></textarea>
+    <div class="schedule-hint">普通の予定を入力するだけで、マネージャーがSixTONESの世界観に変換して前日に業務連絡を送ります。</div>
+    <div class="dash-section-title" style="margin-top:20px;">長期戦略イベント</div>
+    <input class="setup-input" id="bigEventInput" placeholder="例：9/15 スタジアムライブ 北海道2公演" style="margin-bottom:12px;">
+    <div class="schedule-hint">重要なイベントを登録すると、そこから逆算した体づくり戦略を自動で作成します。</div>
+    <button class="save-btn" onclick="saveSchedule()">保存する</button>
+  </div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="showScreen('main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      チャット
+    </button>
+    <button class="nav-btn" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      管理
+    </button>
+    <button class="nav-btn active" onclick="showScreen('scheduleScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      予定
+    </button>
+    <button class="nav-btn" onclick="showScreen('settingsScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+
+<div class="screen" id="settingsScreen">
+  <div class="app-header">
+    <button class="back-btn" onclick="showScreen('main')">
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7L7 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      戻る
+    </button>
+    <div style="font-size:15px;font-weight:500;">設定</div>
+  </div>
+  <div class="settings-body" id="settingsBody"></div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="showScreen('main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      チャット
+    </button>
+    <button class="nav-btn" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      管理
+    </button>
+    <button class="nav-btn" onclick="showScreen('scheduleScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      予定
+    </button>
+    <button class="nav-btn active" onclick="showScreen('settingsScreen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const MANAGERS = [
+  {id:'suzuki',name:'鈴木 誠一郎',role:'チーフマネージャー',initial:'鈴',
+   personality:`あなたはSixTONESの唯一の女性メンバーの専属チーフマネージャー、鈴木誠一郎です。キャリア20年。滅多に連絡しないが来たら重要。口調：丁寧な敬語、圧がある、感情を出さない。役割：重要な締め切り・スタジアムへの言及・大局的キャリア管理・緊急モード対応。`},
+  {id:'nakamura',name:'中村 彩',role:'スケジュール担当',initial:'中',
+   personality:`あなたはSixTONESの唯一の女性メンバーのスケジュール担当マネージャー、中村彩です。事務的で正確。口調：敬語、感情なし、業務連絡に徹する。役割：毎朝起床確認・翌日スケジュール通知・就寝前ルーティン確認・一言目標の設定。`},
+  {id:'nishida',name:'西田 隆介',role:'体調管理担当',initial:'西',
+   personality:`あなたはSixTONESの唯一の女性メンバーの体調管理マネージャー、西田隆介です。数字とデータで管理。口調：敬語、淡々と事実を突きつける。役割：ジム・食事・睡眠・サプリ・水分・むくみ管理・ピルリマインド・気分チェックイン・週次チェックイン。`},
+  {id:'hamada',name:'浜田 理恵',role:'美容・イメージ担当',initial:'浜',
+   personality:`あなたはSixTONESの唯一の女性メンバーの美容・イメージ担当マネージャー、浜田理恵です。美容・体型・肌のプロ。口調：敬語だが外見について遠慮しない、容赦なく現実を伝える。役割：スキンケア・体型・写真写り・むくみ・ライバル演出・SNSコメント対応。`},
+];
+
+const DEFAULT_REMINDERS = [
+  {id:'r1',hour:5,min:30,managerId:'nakamura',text:'おはようございます。5時30分です。今日もスケジュールを確認してください。',active:true},
+  {id:'r2',hour:6,min:0,managerId:'nishida',text:'朝ジムの時間です。8時の勤務開始まで時間があります。今すぐ出発してください。',active:true,onlyNotTueThu:true},
+  {id:'r3',hour:7,min:30,managerId:'nakamura',text:'8時から勤務です。朝食は済みましたか。',active:true,onlyNotTueThu:true},
+  {id:'r4',hour:10,min:0,managerId:'nishida',text:'水分の確認です。今日500ml飲みましたか。目標は1.5Lです。',active:true},
+  {id:'r5',hour:13,min:0,managerId:'nishida',text:'昼休みです。昼食の内容を報告してください。午前のジム・水分も確認します。',active:true},
+  {id:'r6',hour:15,min:0,managerId:'nishida',text:'サプリは飲みましたか。水分摂取も確認してください。',active:true},
+  {id:'r7',hour:17,min:0,managerId:'nishida',text:'夕方のチェックです。今日のジム・食事・水分の状況を報告してください。',active:true},
+  {id:'r8',hour:19,min:0,managerId:'hamada',text:'夕食の内容に気をつけてください。塩分と糖質は控えめにしてください。むくみに直結します。',active:true},
+  {id:'r9',hour:22,min:0,managerId:'hamada',text:'スキンケアの時間です。クレンジング・洗顔・保湿を丁寧に行ってください。ピルも忘れずに飲んでください。',active:true},
+  {id:'r10',hour:22,min:30,managerId:'nakamura',text:'就寝前チェックです。スキンケア・ピル・明日の準備・スマホを置く・22:30就寝。報告してください。',active:true},
+];
+
+let state = {
+  userName:'',apiKey:'',schedule:'',bigEvent:'',
+  currentManager:null,conversations:{},
+  reminders:[...DEFAULT_REMINDERS],
+  customReminders:[],
+  todayGoal:'',todayMood:0,
+  routineToday:{},
+  pillEnabled:true,
+  strategy:null,
+};
+
+function saveState(){
+  const s={...state};delete s.apiKey;
+  localStorage.setItem('mgr_state_v2',JSON.stringify(s));
+  if(state.apiKey)localStorage.setItem('mgr_key',state.apiKey);
+}
+function loadState(){
+  const s=localStorage.getItem('mgr_state_v2');
+  const k=localStorage.getItem('mgr_key');
+  if(s)state={...state,...JSON.parse(s)};
+  if(k)state.apiKey=k;
+  if(!state.reminders||!state.reminders.length)state.reminders=[...DEFAULT_REMINDERS];
+}
+
+// ===== SYSTEM PROMPT =====
+function buildSystemPrompt(manager){
+  const today=new Date();
+  const dateStr=`${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日（${'日月火水木金土'[today.getDay()]}）`;
+  return `${manager.personality}
+
+【担当アーティスト情報】
+名前：${state.userName||'あなた'}（SixTONES唯一の女性メンバー）
+目標：宮脇咲良のような体型・11字腹筋・くびれ
+身体：身長151cm・体重44kg・23歳・骨格ストレート・運動経験なし
+ジム：ゴールドジム会員（メニューあり）
+特性：ADHDあり・実行機能の欠陥・追い詰められると動ける・褒められると継続できる
+出社：火・木（5:30起床）、他は在宅（8:00勤務開始・朝ジム可）
+健康：低用量ピル服用中（22時）・むくみがひどい
+大目標：${state.bigEvent||'未設定'}
+今月の予定：${state.schedule||'未登録'}
+今日：${dateStr}
+
+【絶対ルール】
+・常に敬語・業務連絡スタイル
+・3〜5文以内で簡潔に
+・嘘をつかない・根拠ある指摘のみ
+・追い詰める時は「事実＋目標との距離」で
+・体重の数字より体組成・見た目・パフォーマンスで話す
+・褒める時は具体的な事実を根拠に褒める`;
+}
+
+// ===== INIT =====
+loadState();
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    document.getElementById('loading').style.opacity='0';
+    setTimeout(()=>{
+      document.getElementById('loading').style.display='none';
+      if(state.userName&&state.apiKey){
+        showScreen('main');
+        startScheduler();
+        checkUpcomingSchedule();
+      }else{
+        document.getElementById('setup').classList.add('active');
+        if(state.userName)document.getElementById('userName').value=state.userName;
+      }
+    },500);
+  },1500);
+});
+
+function startApp(){
+  const name=document.getElementById('userName').value.trim();
+  const key=document.getElementById('apiKey').value.trim();
+  if(!name){alert('名前を入力してください');return;}
+  if(!key||!key.startsWith('sk-ant-')){alert('有効なClaude APIキーを入力してください');return;}
+  state.userName=name;state.apiKey=key;saveState();
+  showScreen('main');
+  startScheduler();
+  setTimeout(()=>sendAutoMessage('nakamura',`${name}さん、セットアップ完了しました。今日からよろしくお願いします。まず西田から初回ヒアリングを行います。`),1500);
+  setTimeout(()=>sendAutoMessage('nishida',`${name}さん、体調管理担当の西田です。現在のルーティンを教えてください。朝食・サプリ・スキンケアの習慣はありますか？`),4000);
+}
+
+// ===== NAVIGATION =====
+let toastTargetManager=null;
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='main'){renderChatList();if(state.userName)document.getElementById('mainTitle').textContent=`${state.userName} — チーム`;}
+  if(id==='dashboard')renderDashboard();
+  if(id==='settingsScreen')renderSettings();
+  if(id==='scheduleScreen'){
+    if(state.schedule)document.getElementById('scheduleInput').value=state.schedule;
+    if(state.bigEvent)document.getElementById('bigEventInput').value=state.bigEvent;
+  }
+}
+
+// ===== CHAT LIST =====
+function renderChatList(){
+  const list=document.getElementById('chatList');
+  list.innerHTML='';
+  MANAGERS.forEach(m=>{
+    const convs=state.conversations[m.id]||[];
+    const last=convs[convs.length-1];
+    const item=document.createElement('div');
+    item.className='chat-item';
+    item.onclick=()=>openChat(m.id);
+    const time=last?formatTime(last.time):'';
+    const preview=last?(last.role==='assistant'?last.content:`あなた: ${last.content}`):'タップして話しかける';
+    item.innerHTML=`
+      <div class="chat-avatar">${m.initial}</div>
+      <div class="chat-info">
+        <div class="chat-role">${m.role}</div>
+        <div class="chat-name-row">
+          <div class="chat-name">${m.name}</div>
+          <div class="chat-time">${time}</div>
+        </div>
+        <div class="chat-preview">${preview.substring(0,45)}${preview.length>45?'…':''}</div>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+// ===== CHAT =====
+function openChat(managerId){
+  state.currentManager=managerId;
+  const m=MANAGERS.find(x=>x.id===managerId);
+  document.getElementById('chatHeaderAvatar').textContent=m.initial;
+  document.getElementById('chatHeaderName').textContent=m.name;
+  document.getElementById('chatHeaderRole').textContent=m.role;
+  renderQuickActions(managerId);
+  showScreen('chat');
+  renderMessages();
+  scrollToBottom();
+}
+
+function openToastChat(){
+  if(toastTargetManager){hideToast();openChat(toastTargetManager);}
+}
+
+function renderQuickActions(managerId){
+  const area=document.getElementById('quickActions');
+  const actions={
+    nishida:[{label:'✅ ジム行った',msg:'ジム行きました'},{label:'🥗 食事報告',msg:'食事の報告をします'},{label:'💧 水飲んだ',msg:'水飲みました'},{label:'🆘 今日無理',msg:'今日は無理です'}],
+    hamada:[{label:'🧴 スキンケア完了',msg:'スキンケア完了しました'},{label:'😮 むくんでる',msg:'今日むくんでいます'},{label:'📸 写真撮った',msg:'今週の写真を撮りました'}],
+    nakamura:[{label:'☀️ 起きた',msg:'起きました'},{label:'🎯 今日の目標',msg:'今日の目標を決めたいです'},{label:'📋 ルーティン確認',msg:'今日のルーティンを確認したいです'}],
+    suzuki:[{label:'🆘 緊急モード',msg:'今日は何もできません。緊急モードをお願いします'},{label:'📊 進捗確認',msg:'今週の進捗を確認したいです'}],
+  };
+  area.innerHTML='';
+  (actions[managerId]||[]).forEach(a=>{
+    const btn=document.createElement('button');
+    btn.className='quick-btn';
+    btn.textContent=a.label;
+    btn.onclick=()=>{document.getElementById('msgInput').value=a.msg;sendMessage();};
+    area.appendChild(btn);
+  });
+}
+
+function renderMessages(){
+  const area=document.getElementById('messagesArea');
+  area.innerHTML='';
+  const convs=state.conversations[state.currentManager]||[];
+  if(!convs.length){
+    const m=MANAGERS.find(x=>x.id===state.currentManager);
+    area.innerHTML=`<div style="text-align:center;color:var(--text3);font-size:13px;margin-top:60px;">${m.name}にメッセージを送ってみましょう</div>`;
+    return;
+  }
+  let lastDate='';
+  convs.forEach(msg=>{
+    const dl=formatDate(msg.time);
+    if(dl!==lastDate){
+      const d=document.createElement('div');
+      d.className='date-divider';d.textContent=dl;
+      area.appendChild(d);lastDate=dl;
+    }
+    const m=MANAGERS.find(x=>x.id===state.currentManager);
+    const row=document.createElement('div');
+    row.className=`msg-row ${msg.role==='assistant'?'from-manager':'from-me'}`;
+    if(msg.role==='assistant'){
+      row.innerHTML=`<div class="msg-avatar">${m.initial}</div><div class="msg-content"><div class="bubble">${msg.content.replace(/\n/g,'<br>')}</div><div class="msg-meta"><span class="msg-time">${formatTime(msg.time)}</span></div></div>`;
+    }else{
+      row.innerHTML=`<div class="msg-content"><div class="bubble">${msg.content.replace(/\n/g,'<br>')}</div><div class="msg-meta"><span class="msg-time">${formatTime(msg.time)}</span><span class="msg-read">既読</span></div></div>`;
+    }
+    area.appendChild(row);
+  });
+}
+
+function scrollToBottom(){setTimeout(()=>{const a=document.getElementById('messagesArea');a.scrollTop=a.scrollHeight;},50);}
+
+async function sendMessage(){
+  const input=document.getElementById('msgInput');
+  const text=input.value.trim();
+  if(!text||!state.currentManager)return;
+  input.value='';input.style.height='auto';
+  addMessage(state.currentManager,'user',text);
+  renderMessages();scrollToBottom();
+  showTyping();
+  try{
+    const reply=await callClaude(state.currentManager,text);
+    hideTyping();
+    addMessage(state.currentManager,'assistant',reply);
+    renderMessages();scrollToBottom();
+    saveState();
+  }catch(e){
+    hideTyping();
+    addMessage(state.currentManager,'assistant','ただいま応答できません。後ほど再度お試しください。');
+    renderMessages();scrollToBottom();
+  }
+}
+
+function addMessage(mgrId,role,content){
+  if(!state.conversations[mgrId])state.conversations[mgrId]=[];
+  state.conversations[mgrId].push({role,content,time:Date.now()});
+  saveState();
+}
+
+function showTyping(){
+  const area=document.getElementById('messagesArea');
+  const m=MANAGERS.find(x=>x.id===state.currentManager);
+  const row=document.createElement('div');
+  row.className='msg-row from-manager';row.id='typingRow';
+  row.innerHTML=`<div class="msg-avatar">${m.initial}</div><div class="typing-bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  area.appendChild(row);scrollToBottom();
+}
+function hideTyping(){const t=document.getElementById('typingRow');if(t)t.remove();}
+
+// ===== CLAUDE API =====
+async function callClaude(managerId,userMessage){
+  const m=MANAGERS.find(x=>x.id===managerId);
+  const convs=state.conversations[managerId]||[];
+  const history=convs.slice(-12).map(c=>({role:c.role==='assistant'?'assistant':'user',content:c.content}));
+  const res=await fetch('/api/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      system:buildSystemPrompt(m),
+      messages:[...history,{role:'user',content:userMessage}]
+    }),
+  });
+  if(!res.ok)throw new Error(`${res.status}`);
+  const data=await res.json();
+  return data.content;
+}
+
+// ===== AUTO MESSAGES =====
+async function sendAutoMessage(managerId,message){
+  addMessage(managerId,'assistant',message);
+  saveState();
+  const m=MANAGERS.find(x=>x.id===managerId);
+  showToast(managerId,m.name,message);
+  if(state.currentManager===managerId){renderMessages();scrollToBottom();}
+  else renderChatList();
+}
+
+// ===== SCHEDULER =====
+function startScheduler(){
+  checkReminders();
+  setInterval(checkReminders,30000);
+}
+
+function checkReminders(){
+  const now=new Date();
+  const day=now.getDay();
+  const isTueThu=day===2||day===4;
+  const allReminders=[...state.reminders,...(state.customReminders||[])];
+  allReminders.forEach(r=>{
+    if(!r.active)return;
+    if(now.getHours()!==r.hour||Math.abs(now.getMinutes()-r.min)>1)return;
+    if(r.onlyNotTueThu&&isTueThu)return;
+    const key=`notif_${r.id}_${now.toDateString()}`;
+    if(localStorage.getItem(key))return;
+    localStorage.setItem(key,'1');
+    sendAutoMessage(r.managerId,r.text);
+  });
+}
+
+async function checkUpcomingSchedule(){
+  if(!state.schedule||!state.apiKey)return;
+  const tomorrow=new Date();
+  tomorrow.setDate(tomorrow.getDate()+1);
+  const mm=tomorrow.getMonth()+1,dd=tomorrow.getDate();
+  const lines=state.schedule.split('\n').filter(l=>l.trim());
+  const tLine=lines.find(l=>l.includes(`${mm}/${dd}`)||l.includes(`${mm}月${dd}日`));
+  if(!tLine)return;
+  const key=`sched_${tomorrow.toDateString()}`;
+  if(localStorage.getItem(key))return;
+  localStorage.setItem(key,'1');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(MANAGERS[1]),
+        messages:[{role:'user',content:`明日の予定「${tLine}」についてSixTONESのアイドルへの業務連絡として前日のメッセージを送ってください。集合時間・準備事項を含めてリアルに。`}]})});
+    const data=await res.json();
+    sendAutoMessage('nakamura',data.content[0].text);
+  }catch(e){}
+}
+
+// ===== DASHBOARD =====
+function renderDashboard(){
+  const body=document.getElementById('dashBody');
+  const today=new Date();
+  body.innerHTML='';
+
+  // 今日の気分チェックイン
+  const moodSection=document.createElement('div');
+  moodSection.className='dash-section';
+  moodSection.innerHTML=`<div class="dash-section-title">今日の体調チェックイン</div>
+  <div class="dash-card">
+    <div class="dash-card-title">😊 今日の状態は？</div>
+    <div class="checkin-row" id="moodRow">
+      ${['😵 最悪','😔 しんどい','😐 普通','😊 いい感じ','🔥 絶好調'].map((m,i)=>`<button class="mood-btn ${state.todayMood===i+1?'selected':''}" onclick="setMood(${i+1})">${m}</button>`).join('')}
+    </div>
+  </div>`;
+  body.appendChild(moodSection);
+
+  // 就寝前ルーティン
+  const routineSection=document.createElement('div');
+  routineSection.className='dash-section';
+  const routines=[
+    {id:'skincare',label:'スキンケア',time:'22:00'},
+    {id:'pill',label:'ピル服用',time:'22:00'},
+    {id:'tomorrowPrep',label:'明日の準備',time:'22:15'},
+    {id:'phoneDown',label:'スマホを置く',time:'22:20'},
+    {id:'sleep',label:'就寝',time:'22:30'},
+  ];
+  const dateKey=today.toDateString();
+  if(!state.routineToday||state.routineToday.date!==dateKey){
+    state.routineToday={date:dateKey,done:{}};
+  }
+  const doneCount=Object.values(state.routineToday.done||{}).filter(Boolean).length;
+  routineSection.innerHTML=`<div class="dash-section-title">就寝前ルーティン</div>
+  <div class="dash-card">
+    <div class="dash-card-title">📋 本日のチェックリスト <span style="color:var(--accent);font-size:12px;">${doneCount}/${routines.length}</span></div>
+    ${routines.map(r=>`
+      <div class="routine-item">
+        <div class="routine-check ${state.routineToday.done?.[r.id]?'done':''}" onclick="toggleRoutine('${r.id}')"></div>
+        <div class="routine-label">${r.label}</div>
+        <div class="routine-time">${r.time}</div>
+      </div>`).join('')}
+    <div class="progress-bar"><div class="progress-fill" style="width:${doneCount/routines.length*100}%"></div></div>
+  </div>`;
+  body.appendChild(routineSection);
+
+  // 長期戦略
+  if(state.bigEvent){
+    const stratSection=document.createElement('div');
+    stratSection.className='dash-section';
+    const eventDate=parseEventDate(state.bigEvent);
+    const daysLeft=eventDate?Math.ceil((eventDate-today)/(1000*60*60*24)):null;
+    stratSection.innerHTML=`<div class="dash-section-title">長期戦略</div>
+    <div class="dash-card">
+      <div class="dash-card-title">🎯 ${state.bigEvent}</div>
+      ${daysLeft?`<div style="font-size:24px;font-weight:700;color:var(--accent);margin:8px 0;">あと${daysLeft}日</div>`:''}
+      <div class="dash-card-body">
+        ${generateStrategyPhases(daysLeft)}
+      </div>
+    </div>`;
+    body.appendChild(stratSection);
+  }
+
+  // 今日の一言目標
+  const goalSection=document.createElement('div');
+  goalSection.className='dash-section';
+  goalSection.innerHTML=`<div class="dash-section-title">今日の一言目標</div>
+  <div class="dash-card">
+    <div class="dash-card-title">🎯 今日のジムは何時に行きますか？</div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <input class="form-input" id="goalInput" placeholder="例：18時にジム" value="${state.todayGoal||''}">
+      <button style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;" onclick="saveGoal()">宣言</button>
+    </div>
+  </div>`;
+  body.appendChild(goalSection);
+}
+
+function setMood(v){
+  state.todayMood=v;saveState();
+  const labels=['','😵 最悪','😔 しんどい','😐 普通','😊 いい感じ','🔥 絶好調'];
+  const mgrId=v<=2?'suzuki':'nishida';
+  const msgs={1:'体調が最悪とのこと。今日は無理をしないでください。水分とピルだけは飲んでください。',2:'しんどい状態ですね。今日のジムは軽めにしてください。無理は翌週に響きます。',3:'普通の状態ですね。今日のノルマをこなしてください。',4:'調子がいい日です。ジムで追い込んでください。',5:'絶好調ですね。今日が一番結果が出る日です。全力でやってください。'};
+  sendAutoMessage(mgrId,msgs[v]);
+  renderDashboard();
+}
+
+function toggleRoutine(id){
+  if(!state.routineToday.done)state.routineToday.done={};
+  state.routineToday.done[id]=!state.routineToday.done[id];
+  saveState();
+  const doneCount=Object.values(state.routineToday.done).filter(Boolean).length;
+  if(doneCount===5)setTimeout(()=>sendAutoMessage('nakamura','就寝前ルーティン完了です。お疲れ様でした。22:30には寝てください。'),500);
+  renderDashboard();
+}
+
+function saveGoal(){
+  state.todayGoal=document.getElementById('goalInput').value.trim();
+  saveState();
+  if(state.todayGoal){
+    sendAutoMessage('nakamura',`「${state.todayGoal}」、確認しました。時間になったらリマインドします。`);
+    const timeMatch=state.todayGoal.match(/(\d+)時/);
+    if(timeMatch){
+      const h=parseInt(timeMatch[1]);
+      const remindH=h===0?23:h-1;
+      setTimeout(()=>{
+        const now=new Date();
+        if(now.getHours()===remindH)sendAutoMessage('nishida',`1時間後です。「${state.todayGoal}」の準備をしてください。`);
+      },60000);
+    }
+  }
+}
+
+function generateStrategyPhases(daysLeft){
+  if(!daysLeft)return '<div class="dash-card-body">日付を確認できませんでした。</div>';
+  const phases=[
+    {min:60,label:'フェーズ1：基礎体力づくり',content:'ジム週4回・有酸素20分・体脂肪を落とし始める',active:daysLeft>42},
+    {min:28,label:'フェーズ2：筋持久力強化',content:'ジム週5回・体幹トレ追加・食事管理を厳しく',active:daysLeft>14&&daysLeft<=42},
+    {min:7,label:'フェーズ3：コンディション調整',content:'むくみ対策・睡眠優先・激しいトレーニングは控える',active:daysLeft<=14&&daysLeft>3},
+    {min:0,label:'最終調整',content:'塩分制限・十分な睡眠・スキンケア徹底',active:daysLeft<=3},
+  ];
+  return phases.map(p=>`<div class="strategy-phase ${p.active?'active':daysLeft>p.min?'':'done'}"><div class="phase-label">${p.label}</div><div class="phase-content">${p.content}</div></div>`).join('');
+}
+
+function parseEventDate(str){
+  const m=str.match(/(\d+)\/(\d+)/);
+  if(!m)return null;
+  const now=new Date();
+  const d=new Date(now.getFullYear(),parseInt(m[1])-1,parseInt(m[2]));
+  if(d<now)d.setFullYear(d.getFullYear()+1);
+  return d;
+}
+
+// ===== SETTINGS =====
+function renderSettings(){
+  const body=document.getElementById('settingsBody');
+  body.innerHTML=`
+  <div class="settings-section">
+    <div class="settings-section-title">ピルリマインド</div>
+    <div class="pill-setting">
+      <div>
+        <div style="font-size:14px;">毎日22時にリマインド</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;">浜田理恵から通知が来ます</div>
+      </div>
+      <div class="toggle ${state.pillEnabled?'on':''}" onclick="togglePill()"></div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">カスタムリマインド</div>
+    ${(state.customReminders||[]).map(r=>`
+      <div class="reminder-item">
+        <div class="reminder-info">
+          <div class="reminder-time">${String(r.hour).padStart(2,'0')}:${String(r.min).padStart(2,'0')}</div>
+          <div class="reminder-mgr">${MANAGERS.find(m=>m.id===r.managerId)?.name||''}</div>
+          <div class="reminder-text">${r.text}</div>
+        </div>
+        <button class="reminder-del" onclick="deleteCustomReminder('${r.id}')">×</button>
+      </div>`).join('')}
+    <div class="add-reminder-form">
+      <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--accent);">＋ リマインドを追加</div>
+      <div class="form-row">
+        <input class="form-input" type="time" id="newTime" value="12:00">
+        <select class="form-select" id="newMgr">
+          ${MANAGERS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}
+        </select>
+      </div>
+      <input class="form-input" id="newText" placeholder="メッセージ内容" style="margin-bottom:10px;">
+      <button class="save-btn" onclick="addCustomReminder()">追加する</button>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">プロフィール</div>
+    <div class="dash-card">
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;">
+        名前：${state.userName}<br>
+        身長：151cm / 体重：44kg<br>
+        目標：宮脇咲良体型・11字腹筋<br>
+        ジム：ゴールドジム<br>
+        ピル：低用量（22時服用）<br>
+        出社：火・木曜日
+      </div>
+    </div>
+  </div>`;
+}
+
+function togglePill(){
+  state.pillEnabled=!state.pillEnabled;saveState();renderSettings();
+}
+
+function addCustomReminder(){
+  const time=document.getElementById('newTime').value;
+  const mgrId=document.getElementById('newMgr').value;
+  const text=document.getElementById('newText').value.trim();
+  if(!time||!text){alert('時間とメッセージを入力してください');return;}
+  const [h,m]=time.split(':').map(Number);
+  if(!state.customReminders)state.customReminders=[];
+  state.customReminders.push({id:'c'+Date.now(),hour:h,min:m,managerId:mgrId,text,active:true});
+  saveState();renderSettings();
+}
+
+function deleteCustomReminder(id){
+  state.customReminders=(state.customReminders||[]).filter(r=>r.id!==id);
+  saveState();renderSettings();
+}
+
+// ===== SCHEDULE =====
+function saveSchedule(){
+  state.schedule=document.getElementById('scheduleInput').value.trim();
+  state.bigEvent=document.getElementById('bigEventInput').value.trim();
+  saveState();
+  showScreen('main');
+  setTimeout(()=>sendAutoMessage('nakamura','スケジュールを確認しました。前日に業務連絡を入れます。'),800);
+  if(state.bigEvent){
+    const eventDate=parseEventDate(state.bigEvent);
+    const daysLeft=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
+    if(daysLeft)setTimeout(()=>sendAutoMessage('suzuki',`「${state.bigEvent}」を確認しました。あと${daysLeft}日です。今から体づくりを始めないと間に合いません。戦略を組みます。`),2500);
+  }
+  checkUpcomingSchedule();
+}
+
+// ===== TOAST =====
+function showToast(managerId,fromName,msg){
+  toastTargetManager=managerId;
+  document.getElementById('toastFrom').textContent=fromName;
+  document.getElementById('toastMsg').textContent=msg.substring(0,50)+(msg.length>50?'…':'');
+  const toast=document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(hideToast,5000);
+}
+function hideToast(){document.getElementById('toast').classList.remove('show');}
+
+// ===== UTILS =====
+function formatTime(ts){const d=new Date(ts);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+function formatDate(ts){
+  const d=new Date(ts),today=new Date(),yesterday=new Date(today);
+  yesterday.setDate(today.getDate()-1);
+  if(d.toDateString()===today.toDateString())return '今日';
+  if(d.toDateString()===yesterday.toDateString())return '昨日';
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+document.getElementById('msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+</script>
+
+</body>
+</html>
