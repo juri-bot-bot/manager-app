@@ -1,5 +1,7 @@
 const line_token = process.env.LINE_TOKEN;
 const anthropic_key = process.env.ANTHROPIC_KEY;
+const redis_url = process.env.KV_REST_API_URL;
+const redis_token = process.env.KV_REST_API_TOKEN;
 
 const MANAGERS = [
   {id:'suzuki',name:'鈴木 誠一郎',role:'チーフマネージャー',
@@ -12,7 +14,7 @@ const MANAGERS = [
    personality:`あなたはSixTONESの唯一の女性メンバー「あい」の美容・イメージ担当マネージャー、浜田理恵です。美容・体型・肌のプロ。口調：敬語だが外見について遠慮しない。3文以内で簡潔に。`},
 ];
 
-const SCHEDULE = [
+const SCHEDULE_ITEMS = [
   {hour:20,min:30,mgr:'nakamura',context:'朝5時30分の起床時間です。今日は出社日かリモート日か確認してください。'},
   {hour:21,min:0,mgr:'nishida',context:'朝6時、朝ジムの時間です。8時の勤務開始まで時間があります。',notTueThu:true},
   {hour:21,min:30,mgr:'nakamura',context:'7時30分、8時から勤務開始です。朝食の確認をしてください。',notTueThu:true},
@@ -33,7 +35,31 @@ const MEMBER_INFO = `
 グループ：SixTONES（京本大我・松村北斗・髙地優吾・森本慎太郎・田中樹・ジェシー）
 `;
 
-async function generateMessage(manager, context) {
+async function getSchedule() {
+  try {
+    const r = await fetch(`${redis_url}/get/schedule`, {
+      headers: { Authorization: `Bearer ${redis_token}` },
+    });
+    const data = await r.json();
+    return data.result || '';
+  } catch(e) {
+    return '';
+  }
+}
+
+async function getBigEvent() {
+  try {
+    const r = await fetch(`${redis_url}/get/bigEvent`, {
+      headers: { Authorization: `Bearer ${redis_token}` },
+    });
+    const data = await r.json();
+    return data.result || '';
+  } catch(e) {
+    return '';
+  }
+}
+
+async function generateMessage(manager, context, schedule, bigEvent) {
   const today = new Date();
   const jst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
   const dateStr = `${jst.getUTCFullYear()}年${jst.getUTCMonth()+1}月${jst.getUTCDate()}日（${'日月火水木金土'[jst.getUTCDay()]}）`;
@@ -41,16 +67,29 @@ async function generateMessage(manager, context) {
   const isTueThu = day === 2 || day === 4;
   const dayType = isTueThu ? '出社日' : 'リモート・在宅日';
 
+  const tomorrow = new Date(jst.getTime() + 24 * 60 * 60 * 1000);
+  const tmMM = tomorrow.getUTCMonth()+1;
+  const tmDD = tomorrow.getUTCDate();
+
+  const scheduleLines = schedule ? schedule.split('\n').filter(l=>l.trim()) : [];
+  const tomorrowEvent = scheduleLines.find(l => l.includes(`${tmMM}/${tmDD}`) || l.includes(`${tmMM}月${tmDD}日`));
+
   const prompt = `${manager.personality}
 
 ${MEMBER_INFO}
 
 今日：${dateStr}（${dayType}）
+${schedule ? `今月のスケジュール：\n${schedule}` : ''}
+${bigEvent ? `長期目標：${bigEvent}` : ''}
+${tomorrowEvent ? `明日の予定：${tomorrowEvent}` : ''}
 
 以下の状況でメッセージを送ってください：
 ${context}
 
-SixTONESの芸能事務所の世界観で、業務連絡スタイルで送ってください。必要に応じてメンバーの名前（松村さん、髙地さんなど）や仕事内容に絡めてください。敬語・3文以内・簡潔に。`;
+SixTONESの芸能事務所の世界観で、業務連絡スタイルで送ってください。
+${tomorrowEvent ? `明日の予定「${tomorrowEvent}」があれば絡めてください。` : ''}
+${bigEvent ? `長期目標「${bigEvent}」との関連も必要に応じて触れてください。` : ''}
+敬語・3文以内・簡潔に。`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -88,13 +127,15 @@ async function sendLine(message, managerName) {
 
 export default async function handler(req, res) {
   const isTest = req.query.test === 'true';
+  const schedule = await getSchedule();
+  const bigEvent = await getBigEvent();
 
   if (isTest) {
     try {
       const mgr = MANAGERS[1];
-      const msg = await generateMessage(mgr, '午後のテスト送信です。システムが正常に動作しているか確認してください。');
+      const msg = await generateMessage(mgr, '午後のテスト送信です。スケジュールと世界観を絡めたメッセージを送ってください。', schedule, bigEvent);
       const status = await sendLine(msg, mgr.name);
-      return res.status(200).json({ok: true, sent: true, message: msg, lineStatus: status});
+      return res.status(200).json({ok: true, sent: true, message: msg, lineStatus: status, schedule, bigEvent});
     } catch(e) {
       return res.status(500).json({ok: false, error: e.message});
     }
@@ -110,13 +151,13 @@ export default async function handler(req, res) {
   let sent = false;
   const results = [];
 
-  for (const s of SCHEDULE) {
+  for (const s of SCHEDULE_ITEMS) {
     if (s.hour !== hour || Math.abs(s.min - min) > 2) continue;
     if (s.notTueThu && isTueThu) continue;
 
     const mgr = MANAGERS.find(m => m.id === s.mgr);
     try {
-      const msg = await generateMessage(mgr, s.context);
+      const msg = await generateMessage(mgr, s.context, schedule, bigEvent);
       const lineStatus = await sendLine(msg, mgr.name);
       results.push({mgr: mgr.name, message: msg, lineStatus});
       sent = true;
