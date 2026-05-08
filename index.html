@@ -923,14 +923,6 @@ async function saveSchedule(){
   }
   checkUpcomingSchedule();
 }
-  setTimeout(()=>sendAutoMessage('nakamura','スケジュールを確認しました。前日に業務連絡を入れます。'),800);
-  if(state.bigEvent){
-    const eventDate=parseEventDate(state.bigEvent);
-    const daysLeft=eventDate?Math.ceil((eventDate-new Date())/(1000*60*60*24)):null;
-    if(daysLeft)setTimeout(()=>sendAutoMessage('suzuki',`「${state.bigEvent}」を確認しました。あと${daysLeft}日です。今から体づくりを始めないと間に合いません。戦略を組みます。`),2500);
-  }
-  checkUpcomingSchedule();
-}
 
 // ===== TOAST =====
 function showToast(managerId,fromName,msg){
