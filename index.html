@@ -322,7 +322,7 @@ textarea.setup-input{resize:none;height:90px;line-height:1.6;}
     <div class="dash-section-title" style="margin-top:20px;">長期戦略イベント</div>
     <input class="setup-input" id="bigEventInput" placeholder="例：9/15 スタジアムライブ 北海道2公演" style="margin-bottom:12px;">
     <div class="schedule-hint">重要なイベントを登録すると、そこから逆算した体づくり戦略を自動で作成します。</div>
-    <button class="save-btn" onclick="saveSchedule()">保存する</button>
+    <button class="save-btn" onclick="saveSchedule().catch(console.error)">保存する</button>
   </div>
   <div class="bottom-nav">
     <button class="nav-btn" onclick="showScreen('main')">
