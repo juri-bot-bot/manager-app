@@ -13,7 +13,12 @@ app.use(express.static(__dirname));
 
 const redis = createClient({ url: process.env.REDIS_URL });
 redis.on('error', err => console.log('Redis error:', err));
-await redis.connect();
+try {
+  await redis.connect();
+  console.log('Redis connected');
+} catch(e) {
+  console.log('Redis connection failed:', e.message);
+}
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 const LINE_TOKEN = process.env.LINE_TOKEN;
