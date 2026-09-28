@@ -1,5 +1,5 @@
 // api/auth/callback.js
-// GoogleOAuth認証のコールバック処理
+// GoogleOAuth認証のコールバック処理 + トークン自動保存
 
 export default async function handler(req, res) {
   const { code } = req.query;
@@ -30,12 +30,27 @@ export default async function handler(req, res) {
 
     if (!tokenRes.ok) {
       console.error('Token exchange error:', tokenData);
-      return res.status(500).json({ error: 'Token exchange failed', detail: tokenData });
+      return res.status(500).json({ error: 'Token exchange failed' });
     }
 
     const { access_token, refresh_token } = tokenData;
 
-    // トークンをクエリパラメータでフロントに渡す
+    // Vercel環境変数にトークンを自動保存
+    try {
+      await fetch('https://manager-app-pied.vercel.app/api/save-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: access_token,
+          refreshToken: refresh_token,
+        }),
+      });
+    } catch (saveErr) {
+      console.error('Token save error:', saveErr);
+      // 保存失敗してもフロントへのリダイレクトは続行
+    }
+
+    // トークンをフロントにも渡す
     const redirectUrl = new URL('https://manager-app-pied.vercel.app');
     redirectUrl.searchParams.set('access_token', access_token);
     if (refresh_token) {
