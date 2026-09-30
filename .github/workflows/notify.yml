@@ -93,6 +93,12 @@ jobs:
             }
 
             const calendarInfo = await getCalendarEvents();
+// テスト送信（手動実行時のみ）
+if (context.eventName === 'workflow_dispatch') {
+  const msg = await generateMessage(MANAGERS.hamada, 'テスト送信です。', null);
+  await sendLine(MANAGERS.hamada, msg);
+}
+
 
             if (utcH === 20 && utcM === 30) {
               const msg = await generateMessage(MANAGERS.nakamura, '朝5時30分の起床確認。今日一日のスタートを切るための業務連絡。', calendarInfo);
