@@ -2,25 +2,15 @@ name: LINE通知
 
 on:
   schedule:
-    # JST 5:30 起床（UTC 20:30）
     - cron: '30 20 * * *'
-    # JST 7:30 出社（UTC 22:30）火木のみ
     - cron: '30 22 * * 1,3'
-    # JST 10:00 水分（UTC 01:00）
     - cron: '0 1 * * *'
-    # JST 13:00 昼食（UTC 04:00）
     - cron: '0 4 * * *'
-    # JST 15:00 トランポリン前（UTC 06:00）
     - cron: '0 6 * * *'
-    # JST 17:00 夕方（UTC 08:00）
     - cron: '0 8 * * *'
-    # JST 19:00 夕食（UTC 10:00）
     - cron: '0 10 * * *'
-    # JST 21:00 樹（UTC 12:00）月水金
     - cron: '0 12 * * 0,2,4'
-    # JST 22:00 スキンケア（UTC 13:00）
     - cron: '0 13 * * *'
-    # JST 22:30 就寝前（UTC 13:30）
     - cron: '30 13 * * *'
   workflow_dispatch:
 
@@ -46,8 +36,9 @@ jobs:
             const utcM = now.getUTCMinutes();
             const day = now.getUTCDay();
             const isTueThu = day === 2 || day === 4;
+            const isManual = context.eventName === 'workflow_dispatch';
 
-            console.log(`UTC ${utcH}:${String(utcM).padStart(2,'0')} day=${day}`);
+            console.log(`UTC ${utcH}:${String(utcM).padStart(2,'0')} day=${day} manual=${isManual}`);
 
             const MANAGERS = {
               suzuki:   { name: '鈴木 誠一郎', token: process.env.LINE_TOKEN_SUZUKI,   personality: 'あなたはSixTONESの女性メンバーの専属チーフマネージャー、鈴木誠一郎です。キャリア20年。口調：丁寧な敬語、圧がある、感情を出さない。3〜4文で簡潔に。' },
@@ -66,40 +57,50 @@ jobs:
                 body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, system: manager.personality, messages: [{ role: 'user', content: userMessage }] }),
               });
               const data = await res.json();
+              console.log(`Generated for ${manager.name}:`, JSON.stringify(data).substring(0, 100));
               return data.content[0].text;
             }
 
             async function sendLine(manager, message) {
-              if (!manager.token || !process.env.LINE_USER_ID) { console.log(`Missing token for ${manager.name}`); return; }
+              if (!manager.token || !process.env.LINE_USER_ID) {
+                console.log(`Missing token for ${manager.name}`);
+                return;
+              }
               const res = await fetch('https://api.line.me/v2/bot/message/push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${manager.token}` },
                 body: JSON.stringify({ to: process.env.LINE_USER_ID, messages: [{ type: 'text', text: `【${manager.name}】\n${message}` }] }),
               });
-              console.log(`Sent to ${manager.name}: ${res.status}`);
+              const result = await res.json();
+              console.log(`Sent to ${manager.name}: ${res.status}`, JSON.stringify(result));
             }
 
             async function getCalendarEvents() {
               if (!process.env.GCAL_ACCESS_TOKEN) return null;
               try {
                 const now = new Date();
-                const end = new Date(); end.setDate(now.getDate() + 2);
+                const end = new Date();
+                end.setDate(now.getDate() + 2);
                 const params = new URLSearchParams({ timeMin: now.toISOString(), timeMax: end.toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '5' });
                 const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, { headers: { Authorization: `Bearer ${process.env.GCAL_ACCESS_TOKEN}` } });
                 if (!res.ok) return null;
                 const data = await res.json();
                 return (data.items || []).map(e => `${e.start.date || e.start.dateTime?.split('T')[0]} ${e.summary}`).join('、') || null;
-              } catch { return null; }
+              } catch (e) {
+                console.log('Calendar error:', e.message);
+                return null;
+              }
             }
 
             const calendarInfo = await getCalendarEvents();
-// テスト送信（手動実行時のみ）
-if (context.eventName === 'workflow_dispatch') {
-  const msg = await generateMessage(MANAGERS.hamada, 'テスト送信です。', null);
-  await sendLine(MANAGERS.hamada, msg);
-}
 
+            // 手動実行時はテスト送信
+            if (isManual) {
+              const msg = await generateMessage(MANAGERS.hamada, 'テスト送信。システムが正常に動作しているか確認してください。', calendarInfo);
+              await sendLine(MANAGERS.hamada, msg);
+            }
 
+            // スケジュール実行時
             if (utcH === 20 && utcM === 30) {
               const msg = await generateMessage(MANAGERS.nakamura, '朝5時30分の起床確認。今日一日のスタートを切るための業務連絡。', calendarInfo);
               await sendLine(MANAGERS.nakamura, msg);
