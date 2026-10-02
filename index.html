@@ -664,14 +664,14 @@ async function callClaude(managerId,userMessage){
   const m=MANAGERS.find(x=>x.id===managerId);
   const convs=state.conversations[managerId]||[];
   const history=convs.slice(-12).map(c=>({role:c.role==='assistant'?'assistant':'user',content:c.content}));
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
+  const res=await fetch('/api/chat',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(m),messages:[...history,{role:'user',content:userMessage}]}),
+    body:JSON.stringify({system:buildSystemPrompt(m),messages:[...history,{role:'user',content:userMessage}]}),
   });
   if(!res.ok)throw new Error(`${res.status}`);
   const data=await res.json();
-  return data.content[0].text;
+  return data.content;
 }
 
 // ===== AUTO MESSAGES =====
