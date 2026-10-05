@@ -671,7 +671,7 @@ async function callClaude(managerId,userMessage){
   });
   if(!res.ok)throw new Error(`${res.status}`);
   const data=await res.json();
-  return data.content[0].text;
+  return data.content;
 }
 
 // ===== AUTO MESSAGES =====
