@@ -71,7 +71,7 @@ jobs:
               const res = await fetch('https://api.line.me/v2/bot/message/push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${manager.token}` },
-                body: JSON.stringify({ to: process.env.LINE_USER_ID, messages: [{ type: 'text', text: `【${manager.name}】\n${message}` }] }),
+                body: JSON.stringify({ to: process.env.LINE_USER_ID, messages: [{ type: 'text', text: message }] }),
               });
               const result = await res.json();
               console.log(`Sent to ${manager.name}: ${res.status}`, JSON.stringify(result));
