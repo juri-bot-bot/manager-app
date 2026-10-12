@@ -3,6 +3,8 @@ name: LINE通知
 on:
   schedule:
     - cron: '30 20 * * *'
+    - cron: '40 20 * * *'
+    - cron: '50 20 * * *'
     - cron: '30 22 * * 1,3'
     - cron: '0 1 * * *'
     - cron: '0 4 * * *'
@@ -69,7 +71,7 @@ jobs:
               const res = await fetch('https://api.line.me/v2/bot/message/push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${manager.token}` },
-                body: JSON.stringify({ to: process.env.LINE_USER_ID, messages: [{ type: 'text', text: message }] }),
+                body: JSON.stringify({ to: process.env.LINE_USER_ID, messages: [{ type: 'text', text: `【${manager.name}】\n${message}` }] }),
               });
               const result = await res.json();
               console.log(`Sent to ${manager.name}: ${res.status}`, JSON.stringify(result));
@@ -104,6 +106,14 @@ jobs:
             if (utcH === 20 && utcM === 30) {
               const msg = await generateMessage(MANAGERS.nakamura, '朝5時30分の起床確認。今日一日のスタートを切るための業務連絡。', calendarInfo);
               await sendLine(MANAGERS.nakamura, msg);
+            }
+            if (utcH === 20 && utcM === 40) {
+              const msg = await generateMessage(MANAGERS.juri, 'まだ寝てるかもしれないシンメへの5時40分の二度寝確認。起きろという喝入れ。', calendarInfo);
+              await sendLine(MANAGERS.juri, msg);
+            }
+            if (utcH === 20 && utcM === 50) {
+              const msg = await generateMessage(MANAGERS.suzuki, 'まだ起きていない可能性があるメンバーへの5時50分の最終起床確認。チーフとして圧をかける。', calendarInfo);
+              await sendLine(MANAGERS.suzuki, msg);
             }
             if (utcH === 22 && utcM === 30 && isTueThu) {
               const msg = await generateMessage(MANAGERS.nakamura, '8時から業務開始の出社日。朝食と準備の確認。', calendarInfo);
