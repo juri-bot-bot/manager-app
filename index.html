@@ -197,6 +197,13 @@ textarea.setup-input{resize:none;height:90px;line-height:1.6;}
 .toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 2px 4px rgba(0,0,0,0.15);}
 .toggle.on::after{transform:translateX(20px);}
 </style>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(reg=>{
+    reg.update();
+  });
+}
+</script>
 </head>
 <body>
 
@@ -664,14 +671,14 @@ async function callClaude(managerId,userMessage){
   const m=MANAGERS.find(x=>x.id===managerId);
   const convs=state.conversations[managerId]||[];
   const history=convs.slice(-12).map(c=>({role:c.role==='assistant'?'assistant':'user',content:c.content}));
-  const res=await fetch('/api/chat',{
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({system:buildSystemPrompt(m),messages:[...history,{role:'user',content:userMessage}]}),
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(m),messages:[...history,{role:'user',content:userMessage}]}),
   });
   if(!res.ok)throw new Error(`${res.status}`);
   const data=await res.json();
-  return data.content;
+  return data.content[0].text;
 }
 
 // ===== AUTO MESSAGES =====
