@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import cron from 'node-cron';
 import { createClient } from 'redis';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -104,22 +103,8 @@ async function sendScheduledMessage(mgrId, context) {
   console.log(`Sent: ${mgr.name} - ${msg}`);
 }
 
-// スケジュール設定（日本時間）
-// 5:30 起床
-cron.schedule('30 5 * * *', () => sendScheduledMessage('nakamura', '朝5時30分の起床時間です。今日のスケジュールを確認してください。'), {timezone:'Asia/Tokyo'});
-// 6:00 朝ジム（火木以外）
-cron.schedule('0 6 * * 0,1,3,5,6', () => sendScheduledMessage('nishida', '朝6時、朝ジムの時間です。8時の勤務開始まで時間があります。'), {timezone:'Asia/Tokyo'});
-// 7:30 朝食（火木以外）
-cron.schedule('30 7 * * 0,1,3,5,6', () => sendScheduledMessage('nakamura', '7時30分、8時から勤務開始です。朝食の確認をしてください。'), {timezone:'Asia/Tokyo'});
-// 13:00 昼食
-cron.schedule('0 13 * * *', () => sendScheduledMessage('nishida', '13時、昼休みです。昼食内容と水分摂取を確認してください。'), {timezone:'Asia/Tokyo'});
-// 17:00 夕方
-cron.schedule('0 17 * * *', () => sendScheduledMessage('hamada', '17時、夕方のチェックです。ジム・食事・むくみの状態を確認してください。'), {timezone:'Asia/Tokyo'});
-// 22:00 就寝前
-cron.schedule('0 22 * * *', () => sendScheduledMessage('nakamura', '22時、就寝前です。スキンケア・ピル服用・明日の準備を確認してください。'), {timezone:'Asia/Tokyo'});
-// ランダム追い込み（14時・19時）
-cron.schedule('0 14 * * *', () => sendScheduledMessage('suzuki', '午後の突然チェックです。今日の進捗を報告してください。9月のスタジアムまでの残り日数を意識してください。'), {timezone:'Asia/Tokyo'});
-cron.schedule('0 19 * * *', () => sendScheduledMessage('hamada', '夜の突然チェックです。今日の食事内容と体の状態を報告してください。'), {timezone:'Asia/Tokyo'});
+// 定時通知はVercel Cron（api/cron.js）に一本化。
+// このExpressサーバーではnode-cronを起動しない。
 
 // APIルート
 app.post('/api/chat', async (req, res) => {
