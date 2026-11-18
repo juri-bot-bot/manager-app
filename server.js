@@ -83,7 +83,7 @@ ${bigEvent?`長期目標：${bigEvent}`:''}
 }
 
 async function sendLine(message, managerName) {
-  const text = `【${managerName}】\n${message}`;
+  const text = message;
   await fetch('https://api.line.me/v2/bot/message/broadcast', {
     method: 'POST',
     headers: {
