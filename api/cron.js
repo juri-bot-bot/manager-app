@@ -88,7 +88,7 @@ async function sendLine(managerId, message) {
     },
     body: JSON.stringify({
       to: userId,
-      messages: [{ type: 'text', text: `【${manager.name}】\n${message}` }],
+      messages: [{ type: 'text', text: message }],
     }),
   });
 }
