@@ -1,15 +1,27 @@
 // api/cron.js
-import { createClient } from 'redis';
+// Use Vercel's connected Redis REST credentials. This avoids relying on a stale
+// REDIS_URL hostname while keeping the atomic duplicate-invocation guard.
+async function claimCronSlot(slot) {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) throw new Error('KV_REST_API_URL or KV_REST_API_TOKEN is not configured');
 
-let redisClient;
-async function getRedisClient() {
-  if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not configured');
-  if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('error', err => console.error('Redis error:', err));
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'text/plain',
+    },
+    body: `SET ${slot} 1 NX EX 86400`,
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`KV REST request failed (${response.status}): ${detail}`);
   }
-  if (!redisClient.isOpen) await redisClient.connect();
-  return redisClient;
+
+  const result = await response.json();
+  return result.result === 'OK';
 }
 // Vercel Cron Jobs から呼ばれる。Claude AIがキャラクターに沿ったメッセージを生成してLINEで送る。
 
@@ -135,9 +147,8 @@ export default async function handler(req, res) {
   // Atomically suppress duplicate invocations of the same UTC minute.
   const cronSlot = `line-cron:${now.toISOString().slice(0, 16)}`;
   try {
-    const redis = await getRedisClient();
-    const claimed = await redis.set(cronSlot, '1', { NX: true, EX: 86400 });
-    if (claimed !== 'OK') {
+    const claimed = await claimCronSlot(cronSlot);
+    if (!claimed) {
       console.log('Duplicate cron invocation suppressed:', cronSlot);
       return res.status(200).json({ ok: true, duplicate: true });
     }
