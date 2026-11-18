@@ -1,4 +1,16 @@
 // api/cron.js
+import { createClient } from 'redis';
+
+let redisClient;
+async function getRedisClient() {
+  if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not configured');
+  if (!redisClient) {
+    redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient.on('error', err => console.error('Redis error:', err));
+  }
+  if (!redisClient.isOpen) await redisClient.connect();
+  return redisClient;
+}
 // Vercel Cron Jobs から呼ばれる。Claude AIがキャラクターに沿ったメッセージを生成してLINEで送る。
 
 const MANAGERS = {
@@ -120,6 +132,20 @@ export default async function handler(req, res) {
   }
 
   const now = new Date();
+  // Atomically suppress duplicate invocations of the same UTC minute.
+  const cronSlot = `line-cron:${now.toISOString().slice(0, 16)}`;
+  try {
+    const redis = await getRedisClient();
+    const claimed = await redis.set(cronSlot, '1', { NX: true, EX: 86400 });
+    if (claimed !== 'OK') {
+      console.log('Duplicate cron invocation suppressed:', cronSlot);
+      return res.status(200).json({ ok: true, duplicate: true });
+    }
+  } catch (e) {
+    console.error('Cron deduplication unavailable:', e);
+    return res.status(503).json({ error: 'Deduplication unavailable' });
+  }
+
   const utcH = now.getUTCHours();
   const utcM = now.getUTCMinutes();
   const day = now.getUTCDay();
