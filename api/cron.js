@@ -92,7 +92,7 @@ async function generateMessage(manager, situation, calendarInfo) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      system: manager.personality,
+      system: manager.personality + `\n\n【LINEメッセージの絶対ルール】\n- 送信文には「マネージャー」「担当」「スタッフ」など自分の立場を説明する言葉を入れない。\n- 「樹」「田中樹」など自分の名前や名乗り、署名を一切入れない。相手の名前も呼びかけに使わない。\n- 「マネージャーから」「連絡です」「通知」「リマインドです」など、システムや役割が透ける言い方を避ける。\n- まるで普段からLINEで会話している人が、その時ふと思って送った自然な文章にする。\n- 堅い説明文・箇条書き・定型文・AIっぽい締めは禁止。必要な内容だけ自然な会話として伝える。\n- 出力するのは送信する本文だけ。前置きや解説は不要。`,
       messages: [{ role: 'user', content: userMessage }],
     }),
   });
