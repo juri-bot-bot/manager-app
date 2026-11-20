@@ -1,27 +1,46 @@
 // api/cron.js
-// Use Vercel's connected Redis REST credentials. This avoids relying on a stale
-// REDIS_URL hostname while keeping the atomic duplicate-invocation guard.
+// Best-effort shared deduplication. If KV DNS/service is down, fail open so notifications continue.
+const localCronSlots = new Map();
 async function claimCronSlot(slot) {
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
-  if (!url || !token) throw new Error('KV_REST_API_URL or KV_REST_API_TOKEN is not configured');
+  if (!url || !token) return localClaim(slot);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
-    },
-    body: `SET ${slot} 1 NX EX 86400`,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain',
+      },
+      body: `SET ${slot} 1 NX EX 86400`,
+    });
+  } catch (error) {
+    console.error('KV REST network error; using local dedupe:', error);
+    return localClaim(slot);
+  }
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`KV REST request failed (${response.status}): ${detail}`);
+    console.error(`KV REST unavailable (${response.status}); using local dedupe: ${detail}`);
+    return localClaim(slot);
   }
 
   const result = await response.json();
-  return result.result === 'OK';
+  if (result.result === 'OK') return true;
+  if (result.result === null) return false;
+  console.error('Unexpected KV REST response; using local dedupe');
+  return localClaim(slot);
+}
+
+function localClaim(slot) {
+  const now = Date.now();
+  for (const [key, expires] of localCronSlots) if (expires <= now) localCronSlots.delete(key);
+  if (localCronSlots.has(slot)) return false;
+  localCronSlots.set(slot, now + 5 * 60 * 1000);
+  console.warn('Cron dedupe using instance-local fallback:', slot);
+  return true;
 }
 // Vercel Cron Jobs から呼ばれる。Claude AIがキャラクターに沿ったメッセージを生成してLINEで送る。
 
@@ -79,6 +98,8 @@ async function generateMessage(manager, situation, calendarInfo) {
   });
 
   const data = await res.json();
+  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${data.error?.message || 'request failed'}`);
+  if (!data.content?.[0]?.text) throw new Error('Anthropic response had no text content');
   return data.content[0].text;
 }
 
@@ -92,7 +113,7 @@ async function sendLine(managerId, message) {
     return;
   }
 
-  await fetch('https://api.line.me/v2/bot/message/push', {
+  const response = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -103,6 +124,11 @@ async function sendLine(managerId, message) {
       messages: [{ type: 'text', text: message }],
     }),
   });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`LINE push failed (${response.status}): ${detail}`);
+  }
+  console.log(`LINE push succeeded for ${managerId}`);
 }
 
 async function getCalendarEvents() {
