@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const authHeader = req.headers['authorization'];
-  if (!process.env.TEST_SEND_KEY || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.TEST_SEND_KEY || authHeader !== `Bearer ${process.env.TEST_SEND_KEY}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const apiKey = process.env.ANTHROPIC_KEY;
